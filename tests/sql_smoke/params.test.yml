@@ -1,0 +1,52 @@
+# Overrides applied on top of workflow/golden_path/config/params.yml for the DuckDB smoke test.
+common:
+  database: gp_test
+  weblog_lookback_days: 90
+source:
+  weblog:
+    db: src
+    table: weblog_pageviews
+    member_id_expr: "member_id"
+    user_agent_expr: "td_user_agent"
+  member:
+    enabled: true
+    db: src
+    table: crm_members
+    member_id_expr: "member_id"
+    register_time_expr: "register_time"
+    gender_expr: "gender"
+    age_band_expr: "CAST(CAST(FLOOR((2026 - CAST(SUBSTR(birthday, 1, 4) AS INTEGER)) / 10) * 10 AS INTEGER) AS VARCHAR) || '代'"
+    prefecture_expr: "prefecture"
+    valid_condition: "is_test = 0"
+  pos:
+    enabled: true
+    db: src
+    table: pos_order_lines
+    member_id_expr: "member_id"
+    order_id_expr: "order_id"
+    order_time_expr: "time"
+    channel_expr: "CASE WHEN shop_code = 'EC' THEN 'ec' ELSE 'store' END"
+    product_id_expr: "product_id"
+    quantity_expr: "qty"
+    amount_expr: "amount"
+    valid_condition: "status <> 'キャンセル'"
+    order_id_matches_web: true
+  product:
+    enabled: true
+    db: src
+    table: product_master
+    product_id_expr: "product_id"
+    product_name_expr: "product_name"
+    category_expr: "category"
+    brand_expr: "brand"
+cv:
+  condition: "regexp_like(td_url, '/order/complete')"
+  order_id_expr: "url_extract_parameter(td_url, 'order_id')"
+ecommerce:
+  column_expr: "ecommerce"
+touch:
+  internal_host_regex: "(^|\\.)example-fashion\\.jp$"
+golden_path:
+  min_support: 8
+journey:
+  repurchase_window_days: 30

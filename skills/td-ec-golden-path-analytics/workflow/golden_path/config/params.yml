@@ -1,0 +1,253 @@
+###############################################################################
+# td-ec-golden-path-analytics 設定ファイル
+#
+# セットアップ（ヒアリング）で、このファイルと queries/01_prep/channel_rules.sql
+# だけを書き換えます。SQL 本体は原則として編集しません。
+#
+# 値の書き方
+# - *_expr  : 元テーブルの1行に対して評価される Trino の式（カラム名はそのまま書く）
+# - *_regex : Trino の regexp_like に渡す正規表現（Java 正規表現。(?i) で大文字小文字無視）
+# - 不明な値は <TO_BE_CONFIRMED> のまま残し、セットアップ報告の「未確認事項」に挙げる
+###############################################################################
+
+common:
+  # 中間テーブル・ダッシュボード用テーブルの出力先 DB
+  database: golden_path_mart
+  # TD_INTERVAL などで使うタイムゾーン
+  td_tz: JST
+  # Webログの集計期間（日）。大規模サイトは 60〜90 日から始める
+  # 再購入（journey.repurchase_window_days）を判定できるよう、再購入の日数より十分長くする
+  weblog_lookback_days: 120
+  # POS（購買）データの集計期間（日）。RFM・再購入判定に使う
+  pos_lookback_days: 730
+  # 人物キーの作り方: member = 会員IDで cookie を束ねる / cookie = cookie 単位のまま
+  id_stitching: member
+
+###############################################################################
+# データソース
+###############################################################################
+source:
+
+  # 1. Webログ（td-js-sdk）
+  weblog:
+    db: <TO_BE_CONFIRMED>
+    table: <TO_BE_CONFIRMED>
+    cookie_col: td_client_id
+    url_col: td_url
+    referrer_col: td_referrer
+    # 会員IDの式。会員IDカラムが無い場合は "CAST(NULL AS VARCHAR)"
+    member_id_expr: "CAST(NULL AS VARCHAR)"
+    # User-Agent の式（スマホ判定・アプリ判定に使用）。無ければ "CAST(NULL AS VARCHAR)"
+    user_agent_expr: "td_user_agent"
+    # 対象行の絞り込み（ホスト・ボット除外など）。不要なら "1=1"
+    filter_condition: "1=1"
+
+  # 2. 会員データ
+  member:
+    enabled: false
+    db: <TO_BE_CONFIRMED>
+    table: <TO_BE_CONFIRMED>
+    member_id_expr: "CAST(member_id AS VARCHAR)"
+    # 会員登録日時（unixtime 秒）の式。例: "TD_TIME_PARSE(register_date, 'JST')"
+    register_time_expr: "CAST(NULL AS BIGINT)"
+    gender_expr: "CAST(NULL AS VARCHAR)"
+    # 年代の式。例: "CAST(FLOOR(DATE_DIFF('year', CAST(birthday AS DATE), current_date) / 10) * 10 AS VARCHAR) || '代'"
+    age_band_expr: "CAST(NULL AS VARCHAR)"
+    prefecture_expr: "CAST(NULL AS VARCHAR)"
+    # 社員・テスト会員・退会者の除外など
+    valid_condition: "1=1"
+
+  # 3. POS（店舗＋EC の購買明細）
+  pos:
+    enabled: false
+    db: <TO_BE_CONFIRMED>
+    table: <TO_BE_CONFIRMED>
+    # パーティション絞り込み（time カラムがあれば TD_INTERVAL を推奨）
+    partition_filter: "1=1"
+    member_id_expr: "CAST(member_id AS VARCHAR)"
+    order_id_expr: "CAST(order_id AS VARCHAR)"
+    # 注文日時（unixtime 秒）の式
+    order_time_expr: "time"
+    # 'ec' / 'store' を返す式
+    channel_expr: "'store'"
+    # Webログの商品IDと同じ値になる商品キーの式（SKU→品番の変換が必要ならここで行う）
+    product_id_expr: "CAST(product_id AS VARCHAR)"
+    product_name_expr: "CAST(NULL AS VARCHAR)"
+    category_expr: "CAST(NULL AS VARCHAR)"
+    brand_expr: "CAST(NULL AS VARCHAR)"
+    quantity_expr: "1"
+    # 明細の売上金額（税込/税抜はヒアリングで確定）。注文合計が明細に重複して入る場合は注意
+    amount_expr: "CAST(amount AS DOUBLE)"
+    # キャンセル・返品・社内取引の除外
+    valid_condition: "1=1"
+    # Web の購入完了ログの注文IDと、POS の注文IDが同じ値か
+    order_id_matches_web: false
+
+  # 4. 商品マスタ（任意。カテゴリ・ブランド・商品名の正）
+  product:
+    enabled: false
+    db: <TO_BE_CONFIRMED>
+    table: <TO_BE_CONFIRMED>
+    product_id_expr: "CAST(product_id AS VARCHAR)"
+    product_name_expr: "CAST(NULL AS VARCHAR)"
+    category_expr: "CAST(NULL AS VARCHAR)"
+    brand_expr: "CAST(NULL AS VARCHAR)"
+
+  # 5. cookie ⇔ 会員ID の対応テーブル（任意。Webログの会員IDに加えて使う）
+  id_map:
+    enabled: false
+    db: <TO_BE_CONFIRMED>
+    table: <TO_BE_CONFIRMED>
+    cookie_expr: "td_client_id"
+    member_id_expr: "CAST(member_id AS VARCHAR)"
+
+###############################################################################
+# ページ分類（URL のパス＋クエリ文字列 = path_query に対する正規表現）
+# 上から順に判定。どれにも当たらなければ other
+###############################################################################
+pages:
+  cart_regex: "^/(cart|basket)"
+  checkout_regex: "^/(checkout|order/(input|confirm))"
+  register_regex: "^/(member|regist)[^?]*(complete|thanks|finish)"
+  product_regex: "^/(item|items|products?|goods)/"
+  # 商品IDを取り出す正規表現（グループ1が商品ID）
+  product_id_regex: "^/(?:item|items|products?|goods)/([^/?#]+)"
+  search_regex: "(^/search|[?&](q|keyword|kw)=)"
+  category_regex: "^/(category|categories|c|brand|collections?)/"
+  mypage_regex: "^/(mypage|account|login|member)"
+  content_regex: "^/(feature|features|special|blog|magazine|news|lookbook|styling)"
+  top_regex: "^/?(\\?.*)?$"
+
+###############################################################################
+# コンバージョン（購入完了）の判定
+###############################################################################
+cv:
+  # 購入完了ログの判定式（Webログの1行に対して評価）
+  condition: "regexp_like(td_url, '(?i)/(order|checkout|cart)/?(complete|thanks|finish)')"
+  # 注文IDの式。無ければ "CAST(NULL AS VARCHAR)"
+  order_id_expr: "CAST(NULL AS VARCHAR)"
+  # 注文IDが取れないとき、同一人物の購入完了ログをこの分数以内は1件にまとめる
+  dedupe_minutes: 30
+
+# GA4 データレイヤーの ecommerce オブジェクトが取り込まれている場合
+ecommerce:
+  # ecommerce カラムの式。無ければ "CAST(NULL AS VARCHAR)"
+  column_expr: "CAST(NULL AS VARCHAR)"
+  transaction_id_path: "$.transaction_id"
+  value_path: "$.value"
+  items_path: "$.items"
+  item_id_path: "$.item_id"
+  item_name_path: "$.item_name"
+  item_category_path: "$.item_category"
+  item_brand_path: "$.item_brand"
+  item_price_path: "$.price"
+  item_quantity_path: "$.quantity"
+
+###############################################################################
+# 流入タッチの判定
+###############################################################################
+touch:
+  session_timeout_minutes: 30
+  # 自社サイトのホスト（内部遷移として扱う）
+  internal_host_regex: "<TO_BE_CONFIRMED>"
+  # タッチとして数えないリファラのホスト（決済サービス・3Dセキュア・会員アプリ等）
+  # データ確認（references/data-discovery.md の Q3）で候補を提案してから確定する
+  exclude_referrer_regex: "(^|\\.)(paypay\\.ne\\.jp|pay\\.rakuten\\.co\\.jp|checkout\\.rakuten\\.co\\.jp|pay\\.amazon\\.(co\\.jp|com)|payments\\.amazon\\.co\\.jp|paypal\\.com|3dsecure|acs\\.|veritrans\\.co\\.jp|gmo-pg\\.com|sbpayment\\.jp|d-payment|au-pay|aupay|merpay|linepay|line-pay)"
+  # タッチとして数えない utm_source（会員アプリ・決済戻りなど）
+  exclude_utm_source_regex: "^$"
+  # タッチとして数えないヒットの条件（例: アプリ内ブラウザの UA）。不要なら "1=0"
+  exclude_hit_condition: "1=0"
+  # 検索エンジンと見なすリファラのホスト（organic 判定）
+  search_engine_regex: "(^|\\.)(google\\.|yahoo\\.|bing\\.com|duckduckgo\\.com|baidu\\.com|naver\\.|ecosia\\.org|search\\.)"
+  # 同じタッチが内部遷移を挟んで続いた場合の集約
+  #   session = 同一セッション内の連続した同一タッチを1世代に集約（ブラウザの戻る・進む対策。既定）
+  #   always  = セッションをまたいでも、連続していれば1世代に集約
+  #   none    = 集約しない
+  collapse_mode: session
+
+###############################################################################
+# アトリビューション
+###############################################################################
+attribution:
+  # タッチの粒度: channel / source_medium / source_medium_campaign / source_medium_campaign_content
+  grain: source_medium_campaign
+  # 遡る世代数（集約後のタッチ数）
+  max_generations: 12
+  # 遡る日数
+  lookback_days: 30
+  # 前回のコンバージョン以前のタッチを含めない
+  reset_after_conversion: true
+  # 逓減（Time Decay）モデルの半減期（日）
+  decay_half_life_days: 7
+  # U字（Position Based）モデルの最初・最後の配分。残りを中間タッチで均等割
+  u_first: 0.4
+  u_last: 0.4
+
+###############################################################################
+# RFM（POS ベース・5段階 × 3 = 125 ブロック）
+###############################################################################
+rfm:
+  # all = 店舗＋EC / ec = EC のみ
+  scope: all
+  # F は同値が多いため、既定は閾値で5段階化（quantile にすると分位で分割）
+  f_method: threshold
+  # F スコアの閾値: 回数 >= [0] で 2, >= [1] で 3, >= [2] で 4, >= [3] で 5
+  f_thresholds: [2, 3, 5, 8]
+  # ロイヤル顧客の定義（gp_rfm_customer のカラムで書く）
+  loyal_condition: "r_score >= 4 AND f_score >= 4"
+
+###############################################################################
+# 購買サイクル（流入→回遊→会員登録→購買→再訪問）
+###############################################################################
+journey:
+  # 「回遊」とみなす PV 数（または商品詳細を1回以上閲覧）
+  browse_min_pv: 3
+  # 購入後の「再訪問」を数える日数
+  revisit_window_days: 30
+  # 「再購入」を数える日数。CV 後この日数が経過した CV だけで再購入率を計算する
+  repurchase_window_days: 60
+
+###############################################################################
+# 広告・メール
+###############################################################################
+ads:
+  # 広告とみなすタッチ（medium または channel に一致）
+  paid_medium_regex: "(?i)^(cpc|ppc|paid.*|display|banner|cpm|cpa|affiliate|pmax|shopping|video|retargeting)$"
+  paid_channel_regex: "^(Paid Search|PMax|Paid Social|Display|Affiliate|Video)$"
+
+email:
+  medium_regex: "(?i)^(e-?mail|mail|newsletter|mailmagazine|mailmag|crm_mail)$"
+  source_regex: "(?i)^(e-?mail|mail|newsletter|mailmagazine|engage|braze|karte_mail)$"
+  # メール経由で閲覧した商品を、何日以内に購入したら「同一商品購入」とするか
+  same_product_window_days: 14
+
+###############################################################################
+# ゴールデンパス スコアリング
+###############################################################################
+golden_path:
+  # 商品のまとめ方: category / brand / product
+  product_level: category
+  # 経路パターンに使う直近のチャネル数（集約後）
+  path_steps: 4
+  # サイト内行動パターンに使うステップ数（同じページ種別の連続は1ステップ）
+  behavior_steps: 6
+  # サイト内行動パターンから除くページ種別（購入直前に必ず通るページ）
+  behavior_exclude_regex: "^(cart|checkout)$"
+  # 候補として扱う最小のコンバージョン数
+  min_support: 20
+  # 少数サンプルを全体平均へ縮める強さ（ベイズ平滑化の事前サンプル数）
+  prior_strength: 30
+  # リフトの上限（この倍率で各要素のスコアが最大になる）
+  lift_cap: 3
+  # 各要素の重み（合計は自由。内部で正規化）
+  w_cvr: 0.30
+  w_loyalty: 0.25
+  w_repeat: 0.20
+  w_value: 0.15
+  w_support: 0.10
+  # 各パターン種別で採用する上位件数
+  top_n: 10
+  # 同じ入口（最初のチャネル／着地ページ種別）から採用する最大件数
+  max_per_entry: 3
+  # ロイヤル顧客分析で表示する商品グループ数
+  top_product_groups: 15

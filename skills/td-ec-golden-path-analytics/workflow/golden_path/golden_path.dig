@@ -1,0 +1,41 @@
+timezone: Asia/Tokyo
+
+# 日次更新は Treasure AI Studio から `tdx wf run` でキックする運用を前提にしています。
+# 定期実行にする場合は、次の2行のコメントを外してから push してください。
+# schedule:
+#   daily>: 04:00:00
+
+!include : config/params.yml
+
+_export:
+  td:
+    database: ${common.database}
+    engine: presto
+
+###############################################################################
+# EC ゴールデンパス分析 Workflow
+#
+#   01_prep    元データを正規化（ヒット・セッション・タッチ・CV・注文・会員・商品）
+#   02_marts   中間テーブル（RFM マトリクス・アトリビューション・購買サイクル）
+#   03_golden  ゴールデンパス分析（ロイヤル顧客の経路・広告貢献・メール→商品→購入・スコアリング）
+#   04_dash    ダッシュボード用の KPI
+#
+# 出力テーブルはすべて ${common.database}.gp_* です（README の「出力テーブル」参照）。
+###############################################################################
+
++create_database:
+  td_ddl>:
+  create_databases: ["${common.database}"]
+
++prep:
+  call>: workflows/01_prep.dig
+
++marts:
+  call>: workflows/02_marts.dig
+
++golden:
+  call>: workflows/03_golden.dig
+
++dashboard:
+  td>: queries/04_dash/dash_kpi.sql
+  create_table: gp_dash_kpi

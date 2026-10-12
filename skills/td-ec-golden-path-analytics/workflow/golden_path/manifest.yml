@@ -1,0 +1,54 @@
+name: golden_path
+project: golden_path
+purpose: EC の購買サイクル（流入→回遊→会員登録→購買→再訪問）のゴールデンパスを、Webログ・会員・POS から集計する
+template: td-ec-golden-path-analytics
+engine: presto
+schedule: なし（Treasure AI Studio から tdx wf run で実行）
+tables:
+  reads:
+    - <source.weblog.db>.<source.weblog.table>
+    - <source.member.db>.<source.member.table>   # enabled の場合
+    - <source.pos.db>.<source.pos.table>         # enabled の場合
+    - <source.product.db>.<source.product.table> # enabled の場合
+    - <source.id_map.db>.<source.id_map.table>   # enabled の場合
+  writes:
+    # 01_prep
+    - gp_channel_rules
+    - gp_members
+    - gp_order_lines
+    - gp_orders
+    - gp_product_master
+    - gp_id_map
+    - gp_hits
+    - gp_touch_dim
+    - gp_sessions
+    - gp_touchpoints
+    - gp_conversions
+    - gp_cv_items
+    - gp_product_dim
+    # 02_marts
+    - gp_rfm_customer
+    - gp_rfm_matrix
+    - gp_rfm_segments
+    - gp_attribution_credits
+    - gp_attribution_summary
+    - gp_attribution_channel
+    - gp_cv_journey
+    - gp_cv_journey_items
+    - gp_open_journeys
+    - gp_path_length
+    - gp_top_paths
+    - gp_lifecycle
+    - gp_funnel_summary
+    # 03_golden
+    - gp_loyal_product_paths
+    - gp_loyal_behavior_stats
+    - gp_ad_contribution
+    - gp_ad_product
+    - gp_email_view_purchase
+    - gp_email_influence
+    - gp_email_product
+    - gp_golden_path_candidates
+    - gp_golden_paths
+    # 04_dash
+    - gp_dash_kpi

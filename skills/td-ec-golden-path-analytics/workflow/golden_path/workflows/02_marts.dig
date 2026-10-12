@@ -1,0 +1,64 @@
+timezone: Asia/Tokyo
+
+_export:
+  td:
+    database: ${common.database}
+    engine: presto
+
+###############################################################################
+# 02_marts: 中間テーブル
+#   RFM マトリクス / アトリビューション / コンバージョン経路 / 購買サイクル
+###############################################################################
+
++rfm:
+  +customer:
+    td>: ../queries/02_marts/rfm_customer.sql
+    create_table: gp_rfm_customer
+  +matrix_and_segments:
+    _parallel: true
+    +matrix:
+      td>: ../queries/02_marts/rfm_matrix.sql
+      create_table: gp_rfm_matrix
+    +segments:
+      td>: ../queries/02_marts/rfm_segments.sql
+      create_table: gp_rfm_segments
+
++attribution:
+  +credits:
+    td>: ../queries/02_marts/attribution_credits.sql
+    create_table: gp_attribution_credits
+  +summaries:
+    _parallel: true
+    +by_touch:
+      td>: ../queries/02_marts/attribution_summary.sql
+      create_table: gp_attribution_summary
+    +by_channel:
+      td>: ../queries/02_marts/attribution_channel.sql
+      create_table: gp_attribution_channel
+
++journeys:
+  +cv_journey:
+    td>: ../queries/02_marts/cv_journey.sql
+    create_table: gp_cv_journey
+  +derived:
+    _parallel: true
+    +cv_journey_items:
+      td>: ../queries/02_marts/cv_journey_items.sql
+      create_table: gp_cv_journey_items
+    +open_journeys:
+      td>: ../queries/02_marts/open_journeys.sql
+      create_table: gp_open_journeys
+    +path_length:
+      td>: ../queries/02_marts/path_length.sql
+      create_table: gp_path_length
+    +top_paths:
+      td>: ../queries/02_marts/top_paths.sql
+      create_table: gp_top_paths
+
++lifecycle:
+  +customer:
+    td>: ../queries/02_marts/lifecycle.sql
+    create_table: gp_lifecycle
+  +funnel:
+    td>: ../queries/02_marts/funnel_summary.sql
+    create_table: gp_funnel_summary

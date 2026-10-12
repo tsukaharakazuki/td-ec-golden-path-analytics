@@ -1,0 +1,101 @@
+timezone: Asia/Tokyo
+
+_export:
+  td:
+    database: ${common.database}
+    engine: presto
+
+###############################################################################
+# 01_prep: 元データの正規化
+###############################################################################
+
+# マスタ類（使わないデータは同じスキーマの空テーブルを作る）
++masters:
+  _parallel: true
+
+  +channel_rules:
+    td>: ../queries/01_prep/channel_rules.sql
+    create_table: gp_channel_rules
+
+  +members:
+    +enabled:
+      if>: ${source.member.enabled}
+      _do:
+        td>: ../queries/01_prep/members.sql
+        create_table: gp_members
+    +disabled:
+      if>: ${!source.member.enabled}
+      _do:
+        td>: ../queries/01_prep/members_empty.sql
+        create_table: gp_members
+
+  +order_lines:
+    +enabled:
+      if>: ${source.pos.enabled}
+      _do:
+        td>: ../queries/01_prep/order_lines.sql
+        create_table: gp_order_lines
+    +disabled:
+      if>: ${!source.pos.enabled}
+      _do:
+        td>: ../queries/01_prep/order_lines_empty.sql
+        create_table: gp_order_lines
+
+  +product_master:
+    +enabled:
+      if>: ${source.product.enabled}
+      _do:
+        td>: ../queries/01_prep/product_master.sql
+        create_table: gp_product_master
+    +disabled:
+      if>: ${!source.product.enabled}
+      _do:
+        td>: ../queries/01_prep/product_master_empty.sql
+        create_table: gp_product_master
+
+  +id_map:
+    +enabled:
+      if>: ${source.id_map.enabled}
+      _do:
+        td>: ../queries/01_prep/id_map.sql
+        create_table: gp_id_map
+    +disabled:
+      if>: ${!source.id_map.enabled}
+      _do:
+        td>: ../queries/01_prep/id_map_weblog_only.sql
+        create_table: gp_id_map
+
++orders:
+  td>: ../queries/01_prep/orders.sql
+  create_table: gp_orders
+
+# Webログ → ヒット（人物キー・セッション・ページ種別・タッチ候補）
++hits:
+  td>: ../queries/01_prep/hits.sql
+  create_table: gp_hits
+
++touch_dim:
+  td>: ../queries/01_prep/touch_dim.sql
+  create_table: gp_touch_dim
+
++sessions_and_touches:
+  _parallel: true
+
+  +sessions:
+    td>: ../queries/01_prep/sessions.sql
+    create_table: gp_sessions
+
+  +touchpoints:
+    td>: ../queries/01_prep/touchpoints.sql
+    create_table: gp_touchpoints
+
+  +conversions:
+    +cv:
+      td>: ../queries/01_prep/conversions.sql
+      create_table: gp_conversions
+    +cv_items:
+      td>: ../queries/01_prep/cv_items.sql
+      create_table: gp_cv_items
+    +product_dim:
+      td>: ../queries/01_prep/product_dim.sql
+      create_table: gp_product_dim

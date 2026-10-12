@@ -1,0 +1,7 @@
+node_modules/
+dashboard/dist/
+*.duckdb
+__pycache__/
+.DS_Store
+_discovery/
+golden_path_reports/

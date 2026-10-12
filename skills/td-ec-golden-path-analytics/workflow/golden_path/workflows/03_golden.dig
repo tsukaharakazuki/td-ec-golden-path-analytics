@@ -1,0 +1,54 @@
+timezone: Asia/Tokyo
+
+_export:
+  td:
+    database: ${common.database}
+    engine: presto
+
+###############################################################################
+# 03_golden: ゴールデンパス分析
+#   Q1 ロイヤル顧客は、買っている商品ごとに、どんな流入経路・サイト内行動をしているか
+#   Q2 特定の広告が、実際の購買にどう貢献しているか
+#   Q3 特定のメールが、どの商品ページを閲覧させ、同じ商品の購入につながったか
+#   → スコアロジックでゴールデンパスのパターンを抽出
+###############################################################################
+
++analyses:
+  _parallel: true
+
+  +q1_loyal:
+    +paths:
+      td>: ../queries/03_golden/loyal_product_paths.sql
+      create_table: gp_loyal_product_paths
+    +stats:
+      td>: ../queries/03_golden/loyal_behavior_stats.sql
+      create_table: gp_loyal_behavior_stats
+
+  +q2_ads:
+    +contribution:
+      td>: ../queries/03_golden/ad_contribution.sql
+      create_table: gp_ad_contribution
+    +product:
+      td>: ../queries/03_golden/ad_product.sql
+      create_table: gp_ad_product
+
+  +q3_email:
+    +view_purchase:
+      td>: ../queries/03_golden/email_view_purchase.sql
+      create_table: gp_email_view_purchase
+    +summaries:
+      _parallel: true
+      +influence:
+        td>: ../queries/03_golden/email_influence.sql
+        create_table: gp_email_influence
+      +product:
+        td>: ../queries/03_golden/email_product.sql
+        create_table: gp_email_product
+
++scoring:
+  +candidates:
+    td>: ../queries/03_golden/golden_path_candidates.sql
+    create_table: gp_golden_path_candidates
+  +select:
+    td>: ../queries/03_golden/golden_paths.sql
+    create_table: gp_golden_paths
