@@ -270,8 +270,8 @@ export function Rfm({ b }: { b: Bundle }) {
   }, [b, m, metric])
   const option = useMemo(() => {
     const max = Math.max(0, ...Object.values(grid))
-    // labels on the darkest cells switch to the opposite ink so they stay readable
-    const strong = t.seq[6].toLowerCase() === '#0d366b' ? '#ffffff' : '#0e131b'
+    // labels on the darker half of the violet ramp switch to white so they stay readable
+    const strong = '#ffffff'
     const data: { value: [number, number, number]; label: { color: string } }[] = []
     for (let r = 1; r <= 5; r++) for (let f = 1; f <= 5; f++) {
       const v = grid[`${r}-${f}`] || 0
