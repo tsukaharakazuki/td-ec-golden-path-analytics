@@ -25,6 +25,7 @@ export const DATASETS = [
   'rfm_matrix', 'rfm_segments', 'golden_paths', 'golden_candidates',
   'loyal_product_paths', 'loyal_behavior_stats', 'ad_contribution', 'ad_product',
   'email_influence', 'email_product',
+  'freq_links', 'freq_nodes', 'freq_outcome', 'freq_combos',
 ]
 const REQUIRED = ['kpi', 'attribution_channel', 'rfm_matrix', 'golden_paths']
 
@@ -34,6 +35,7 @@ const TEXT_KEYS = new Set([
   'campaign', 'content', 'pattern', 'path_pattern', 'behavior_signature', 'channel_path', 'email_key', 'entry_key',
   'first_channel', 'member_id', 'person_key', 'bucket', 'metric', 'rfm_cell', 'segment', 'gender', 'age_band',
   'channel_mix', 'dimension', 'customer_type', 'pattern_type', 'strengths', 'order_id', 'cv_id',
+  'mode', 'kind', 'node', 'from_node', 'to_node', 'final_node', 'combo', 'dimension_label',
 ])
 
 // ---------------------------------------------------------------------------
@@ -200,10 +202,52 @@ export function check(wfDir) {
   if (w.some((x) => Number.isNaN(x) || x < 0) || w.reduce((a, b) => a + b, 0) <= 0) errors.push('golden_path の重み（w_*）は 0 以上で、合計が正の数である必要があります')
   const uf = Number(lookup(params, 'attribution.u_first')), ul = Number(lookup(params, 'attribution.u_last'))
   if (!(uf >= 0 && ul >= 0 && uf + ul <= 1)) errors.push('attribution.u_first + u_last は 1 以下にしてください')
+  errors.push(...checkFrequency(params))
   if (Number(lookup(params, 'common.weblog_lookback_days')) <= Number(lookup(params, 'journey.repurchase_window_days'))) {
     warnings.push('common.weblog_lookback_days が journey.repurchase_window_days 以下のため、再購入率が計算できません')
   }
   return { errors, warnings, params }
+}
+
+const FREQ_DIMENSIONS = ['category', 'brand', 'amount_band', 'channel', 'custom']
+
+/** frequency_sankey の設定の検査（区切りの昇順、ランク名の数、SQL の文字列に埋め込む値のクォート） */
+export function checkFrequency(params) {
+  const f = lookup(params, 'frequency_sankey')
+  if (f === undefined) return []
+  const errors = []
+  const nums = (key) => {
+    const raw = String(f[key] ?? '').split(',').map((x) => x.trim())
+    const vals = raw.map(Number)
+    if (!raw.length || raw.some((x) => x === '') || vals.some((x) => !Number.isFinite(x) || x < 0)) {
+      errors.push(`frequency_sankey.${key} はカンマ区切りの 0 以上の数値にしてください: "${f[key]}"`)
+      return null
+    }
+    if (vals.some((x, i) => i > 0 && x <= vals[i - 1])) errors.push(`frequency_sankey.${key} は昇順（重複なし）にしてください`)
+    return vals
+  }
+  const steps = Number(f.max_steps)
+  if (!Number.isInteger(steps) || steps < 2 || steps > 10) errors.push('frequency_sankey.max_steps は 2〜10 の整数にしてください')
+  const dims = String(f.dimensions ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+  if (!dims.length) errors.push('frequency_sankey.dimensions が空です')
+  for (const d of dims) if (!FREQ_DIMENSIONS.includes(d)) errors.push(`frequency_sankey.dimensions に未対応の軸があります: ${d}（${FREQ_DIMENSIONS.join(' / ')}）`)
+  if (dims.includes('custom') && /^\s*CAST\(NULL AS VARCHAR\)\s*$/i.test(String(f.custom_expr))) errors.push('frequency_sankey.dimensions に custom がありますが、custom_expr が未設定です')
+  if (!['primary', 'mixed', 'split'].includes(f.multi_mode_default)) errors.push('frequency_sankey.multi_mode_default は primary / mixed / split のいずれかです')
+  if (!['all', 'ec'].includes(f.scope)) errors.push('frequency_sankey.scope は all / ec のいずれかです')
+  if (!['amount_rank', 'rfm_segment', 'none'].includes(f.final_column)) errors.push('frequency_sankey.final_column は amount_rank / rfm_segment / none のいずれかです')
+  const topN = Number(f.top_nodes)
+  if (!Number.isInteger(topN) || topN < 1 || topN > 12) errors.push('frequency_sankey.top_nodes は 1〜12 の整数にしてください（多すぎると図が読めなくなります）')
+  if (!(Number(f.new_customer_gap_days) >= 0)) errors.push('frequency_sankey.new_customer_gap_days は 0 以上にしてください')
+  nums('amount_bands')
+  const th = nums('rank_thresholds')
+  if (f.final_column === 'amount_rank' && th) {
+    const labels = String(f.rank_labels ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+    if (labels.length !== th.length + 1) errors.push(`frequency_sankey.rank_labels は rank_thresholds の数 + 1（${th.length + 1} 個）にしてください（いまは ${labels.length} 個）`)
+  }
+  for (const k of ['dimensions', 'amount_bands', 'rank_thresholds', 'rank_labels', 'custom_label', 'scope', 'final_column']) {
+    if (String(f[k] ?? '').includes("'")) errors.push(`frequency_sankey.${k} にシングルクォートは使えません`)
+  }
+  return errors
 }
 
 // ---------------------------------------------------------------------------
@@ -340,6 +384,21 @@ function configSummary(params) {
       },
       top_n: g('golden_path.top_n'),
       max_per_entry: g('golden_path.max_per_entry'),
+    },
+    frequency_sankey: g('frequency_sankey') === undefined ? null : {
+      enabled: g('frequency_sankey.enabled'),
+      max_steps: g('frequency_sankey.max_steps'),
+      dimensions: String(g('frequency_sankey.dimensions') ?? '').split(',').map((x) => x.trim()).filter(Boolean),
+      new_customer_gap_days: g('frequency_sankey.new_customer_gap_days'),
+      scope: g('frequency_sankey.scope'),
+      top_nodes: g('frequency_sankey.top_nodes'),
+      multi_mode_default: g('frequency_sankey.multi_mode_default'),
+      amount_bands: g('frequency_sankey.amount_bands'),
+      custom_label: g('frequency_sankey.custom_label'),
+      final_column: g('frequency_sankey.final_column'),
+      rank_thresholds: g('frequency_sankey.rank_thresholds'),
+      rank_labels: g('frequency_sankey.rank_labels'),
+      rank_title: g('frequency_sankey.rank_title'),
     },
   }
 }

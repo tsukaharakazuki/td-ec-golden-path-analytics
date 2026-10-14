@@ -251,3 +251,41 @@ golden_path:
   max_per_entry: 3
   # ロイヤル顧客分析で表示する商品グループ数
   top_product_groups: 15
+
+###############################################################################
+# フリークエンシー・サンキー（購入回数ごとの移り変わり）
+#   初回購入（F1）から F<max_steps> まで、各回の注文が「どの軸の値」だったかを並べ、
+#   最終列に F<max_steps> 時点の累計購買金額ランク（または RFM セグメント）を置く。
+###############################################################################
+frequency_sankey:
+  # false にすると gp_freq_* は空のテーブルになる
+  enabled: true
+  # 表示する購入回数（F1 〜 F<max_steps>）
+  max_steps: 5
+  # 軸（カンマ区切り）: category / brand / amount_band / channel / custom
+  dimensions: "category,brand,amount_band,channel"
+  # 新規顧客の判定: POS の集計期間（pos_lookback_days）の先頭からこの日数のあいだに購入がない人だけを対象にする。
+  # 期間の先頭で既に購入していた既存顧客を「F1」と数えないため。0 にすると期間内の最初の購入を F1 とみなす
+  new_customer_gap_days: 365
+  # 対象の購買: all = 店舗＋EC / ec = EC のみ
+  scope: all
+  # 各軸で表示する値の数（購入者数の多い順。残りは「その他」）
+  top_nodes: 6
+  # 1注文に複数の値（例: 2カテゴリ）があるときの、ダッシュボードの既定の見せ方
+  #   primary = 金額が最大の値を、その注文の値とする（人数がそのまま保たれる）
+  #   mixed   = 「複数カテゴリ」という1つの値にまとめる（併買の多さが見える）
+  #   split   = 金額の比率で按分する（全ての値が流れに出る。人数は「人相当」）
+  # 3つとも集計し、ダッシュボードで切り替えられる
+  multi_mode_default: primary
+  # amount_band 軸: 1注文の合計金額の区切り（円、カンマ区切り、昇順）
+  amount_bands: "3000,5000,10000,20000,30000"
+  # custom 軸: 明細1行に対して評価する式。使えるカラム: product_id, product_name, category, brand, amount
+  #   例: "CASE WHEN regexp_like(product_name, 'コラーゲン') THEN 'ACG' WHEN category = 'セット' THEN 'セット・お試し' ELSE category END"
+  custom_expr: "CAST(NULL AS VARCHAR)"
+  custom_label: "商品系統"
+  # 最終列: amount_rank = F<max_steps> 時点の累計購買金額ランク / rfm_segment = 現在の RFM セグメント / none = 置かない
+  final_column: amount_rank
+  # amount_rank の区切り（円、カンマ区切り、昇順）と名前（区切りの数 + 1 個、低い順）
+  rank_thresholds: "30000,60000,100000"
+  rank_labels: "ブロンズ,シルバー,ゴールド,プラチナ"
+  rank_title: "累計購買金額ランク"

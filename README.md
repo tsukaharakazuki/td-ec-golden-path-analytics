@@ -21,7 +21,7 @@ AI がリポジトリ直下の [`SKILL.md`](./SKILL.md)（インストーラー�
 
 | 段階 | AI がすること | あなたが答える・決めること |
 |---|---|---|
-| ヒアリング | 8 つのテーマ（A〜H）で質問（15〜25 分） | テーブルの場所、購入完了ページ、utm の付け方、店舗まで含めるか など |
+| ヒアリング | 9 つのテーマ（A〜I）で質問（15〜30 分） | テーブルの場所、購入完了ページ、utm の付け方、店舗まで含めるか など |
 | データ確認 | 読み取り専用のクエリで実データを確認し、設定値を提案 | 実行の承認、提案（購入完了の判定・除外するリファラ・チャネル分類・ページ分類）の採否 |
 | Workflow 生成 | `params.yml` とチャネル分類を埋め、静的検査 | 設定一覧の最終確認 |
 | push・初回実行 | `tdx wf push` → `tdx wf run` | push と実行の承認 |
@@ -87,7 +87,7 @@ td-ec-golden-path-analytics/
 ├── skills/td-ec-golden-path-analytics/   # 作業フォルダの .claude/skills/ に配置される運用 Skill
 │   ├── SKILL.md                     # 最新化・ダッシュボード更新・追加分析・設定変更・調査
 │   ├── references/
-│   │   ├── hearing.md               # ヒアリング項目（A〜H）
+│   │   ├── hearing.md               # ヒアリング項目（A〜I）
 │   │   ├── data-discovery.md        # データ確認の手順と結果の読み方
 │   │   ├── methodology.md           # 集計ロジック
 │   │   └── analysis-playbook.md     # 追加分析の SQL
@@ -95,7 +95,7 @@ td-ec-golden-path-analytics/
 │   │   ├── golden_path.dig          # 親（01_prep → 02_marts → 03_golden → 04_dash）
 │   │   ├── workflows/*.dig
 │   │   ├── config/params.yml        # 顧客ごとの設定はここ（＋ channel_rules.sql）
-│   │   ├── queries/                 # Trino SQL（40 本）
+│   │   ├── queries/                 # Trino SQL（46 本）
 │   │   ├── manifest.yml / tdx.json
 │   ├── discovery/*.sql              # データ確認用（読み取り専用）
 │   ├── export/*.sql                 # ダッシュボード用の抽出
@@ -117,7 +117,7 @@ td-ec-golden-path-analytics/
 | 段階 | テーブル |
 |---|---|
 | 01_prep | `gp_hits` `gp_sessions` `gp_touchpoints` `gp_touch_dim` `gp_conversions` `gp_cv_items` `gp_orders` `gp_order_lines` `gp_members` `gp_id_map` `gp_product_master` `gp_product_dim` `gp_channel_rules` |
-| 02_marts | `gp_rfm_customer` `gp_rfm_matrix` `gp_rfm_segments` `gp_attribution_credits` `gp_attribution_summary` `gp_attribution_channel` `gp_cv_journey` `gp_cv_journey_items` `gp_open_journeys` `gp_path_length` `gp_top_paths` `gp_lifecycle` `gp_funnel_summary` |
+| 02_marts | `gp_rfm_customer` `gp_rfm_matrix` `gp_rfm_segments` `gp_attribution_credits` `gp_attribution_summary` `gp_attribution_channel` `gp_cv_journey` `gp_cv_journey_items` `gp_open_journeys` `gp_path_length` `gp_top_paths` `gp_lifecycle` `gp_funnel_summary` `gp_freq_orders` `gp_freq_final` `gp_freq_links` `gp_freq_nodes` `gp_freq_outcome` `gp_freq_combos` |
 | 03_golden | `gp_loyal_product_paths` `gp_loyal_behavior_stats` `gp_ad_contribution` `gp_ad_product` `gp_email_view_purchase` `gp_email_influence` `gp_email_product` `gp_golden_path_candidates` `gp_golden_paths` |
 | 04_dash | `gp_dash_kpi` |
 

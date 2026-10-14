@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  DATASETS, buildBundle, check, discoverySql, exportSql, lookup, parseYaml, readRows, renderDashboard, validateBundle,
+  DATASETS, buildBundle, check, checkFrequency, discoverySql, exportSql, lookup, parseYaml, readRows, renderDashboard, validateBundle,
 } from '../skills/td-ec-golden-path-analytics/scripts/gp-cli.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -115,4 +115,30 @@ test('a bundle with a closing script tag in a value cannot break out of the data
 
 test('validate rejects other formats', () => {
   assert.ok(validateBundle({ format: 'x', version: 1 }).errors.length > 0)
+})
+
+test('checkFrequency: the default settings pass and broken ones are reported', () => {
+  const p = parseYaml(fs.readFileSync(path.join(WF, 'config', 'params.yml'), 'utf8'))
+  assert.deepEqual(checkFrequency(p), [])
+  const bad = structuredClone(p)
+  bad.frequency_sankey.rank_labels = 'A,B'
+  bad.frequency_sankey.amount_bands = '5000,3000'
+  bad.frequency_sankey.dimensions = 'category,sku'
+  bad.frequency_sankey.multi_mode_default = 'both'
+  bad.frequency_sankey.custom_label = "it's"
+  const errors = checkFrequency(bad)
+  for (const key of ['rank_labels', 'amount_bands', 'sku', 'multi_mode_default', 'custom_label']) {
+    assert.ok(errors.some((e) => e.includes(key)), key)
+  }
+  const custom = structuredClone(p)
+  custom.frequency_sankey.dimensions = 'custom'
+  assert.ok(checkFrequency(custom).some((e) => e.includes('custom_expr')))
+})
+
+test('bundle keeps sankey node names as strings even when they look numeric', () => {
+  const dir = tmp()
+  fs.writeFileSync(path.join(dir, 'freq_links.json'), JSON.stringify([{ dimension: 'brand', from_node: '1990', to_node: '2001', weight: '12.5' }]))
+  const { bundle } = buildBundle({ inDir: dir, params: null })
+  assert.equal(bundle.freq_links[0].from_node, '1990')
+  assert.equal(bundle.freq_links[0].weight, 12.5)
 })

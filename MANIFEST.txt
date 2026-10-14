@@ -20,6 +20,10 @@ skills/td-ec-golden-path-analytics/export/attribution_channel.sql
 skills/td-ec-golden-path-analytics/export/attribution_touch.sql
 skills/td-ec-golden-path-analytics/export/email_influence.sql
 skills/td-ec-golden-path-analytics/export/email_product.sql
+skills/td-ec-golden-path-analytics/export/freq_combos.sql
+skills/td-ec-golden-path-analytics/export/freq_links.sql
+skills/td-ec-golden-path-analytics/export/freq_nodes.sql
+skills/td-ec-golden-path-analytics/export/freq_outcome.sql
 skills/td-ec-golden-path-analytics/export/funnel.sql
 skills/td-ec-golden-path-analytics/export/golden_candidates.sql
 skills/td-ec-golden-path-analytics/export/golden_paths.sql
@@ -60,6 +64,12 @@ skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/attribu
 skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/attribution_summary.sql
 skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/cv_journey.sql
 skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/cv_journey_items.sql
+skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/freq_combos.sql
+skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/freq_final.sql
+skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/freq_links.sql
+skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/freq_nodes.sql
+skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/freq_orders.sql
+skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/freq_outcome.sql
 skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/funnel_summary.sql
 skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/lifecycle.sql
 skills/td-ec-golden-path-analytics/workflow/golden_path/queries/02_marts/open_journeys.sql

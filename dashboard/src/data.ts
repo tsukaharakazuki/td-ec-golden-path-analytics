@@ -26,13 +26,17 @@ export interface Bundle {
   ad_product: Row[]
   email_influence: Row[]
   email_product: Row[]
+  freq_links: Row[]
+  freq_nodes: Row[]
+  freq_outcome: Row[]
+  freq_combos: Row[]
 }
 
 export const FORMAT = 'td-ec-golden-path-analytics/bundle'
 const LISTS = [
   'funnel', 'attribution_channel', 'attribution_touch', 'path_length', 'top_paths', 'rfm_matrix', 'rfm_segments',
   'golden_paths', 'golden_candidates', 'loyal_product_paths', 'loyal_behavior_stats', 'ad_contribution', 'ad_product',
-  'email_influence', 'email_product',
+  'email_influence', 'email_product', 'freq_links', 'freq_nodes', 'freq_outcome', 'freq_combos',
 ] as const
 
 export function parseBundle(raw: unknown): Bundle {

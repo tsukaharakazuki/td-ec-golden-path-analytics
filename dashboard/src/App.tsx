@@ -3,6 +3,7 @@ import { BRAND_ICON, Icon, type IconName } from './brand'
 import { embeddedBundle, fmtDate, num, parseBundle, type Bundle } from './data'
 import { REPO_URL, SETUP_PROMPT, UPDATE_PROMPT } from './prompts'
 import { Ads, Attribution, Email, Golden, Loyal, Overview, Quality, Rfm } from './views'
+import { Frequency } from './frequency'
 
 const APP_NAME = 'Treasure AI Golden Path'
 
@@ -11,6 +12,7 @@ const TABS: { id: string; label: string; icon: IconName; lead: string }[] = [
   { id: 'golden', label: 'ゴールデンパス', icon: 'golden', lead: '流入経路・サイト内行動・購入商品の組み合わせをスコア化したパターン。' },
   { id: 'attribution', label: 'アトリビューション', icon: 'attribution', lead: 'チャネルとタッチごとの購買貢献を、複数のモデルで比べます。' },
   { id: 'rfm', label: 'RFM', icon: 'rfm', lead: '最近の購入・購入回数・購入金額で顧客を分けた分布とセグメント。' },
+  { id: 'frequency', label: '購入回数の推移', icon: 'frequency', lead: '初回から N 回目までの購入で、買うもの（カテゴリ・ブランド・金額帯など）がどう移り変わり、どのランクに育ったか。' },
   { id: 'loyal', label: 'ロイヤル顧客の買い方', icon: 'loyal', lead: 'ロイヤル顧客とそれ以外で、買い方と行動がどう違うか。' },
   { id: 'ads', label: '広告の貢献', icon: 'ads', lead: '広告ごとの購買貢献と、経路の中での役割。' },
   { id: 'email', label: 'メールと商品', icon: 'email', lead: 'メール経由で閲覧した商品が、同じ人に購入されたか。' },
@@ -124,6 +126,7 @@ export default function App() {
             {tab === 'golden' && <Golden b={bundle} />}
             {tab === 'attribution' && <Attribution b={bundle} />}
             {tab === 'rfm' && <Rfm b={bundle} />}
+            {tab === 'frequency' && <Frequency b={bundle} />}
             {tab === 'loyal' && <Loyal b={bundle} />}
             {tab === 'ads' && <Ads b={bundle} />}
             {tab === 'email' && <Email b={bundle} />}
@@ -148,6 +151,7 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: 'golden', title: 'ゴールデンパス', text: '流入 → 回遊 → 購入商品の組み合わせを、CVR・ロイヤル率・再購入率・客単価でスコア化' },
   { icon: 'attribution', title: 'アトリビューション', text: 'ラストクリック・線形・U字などのモデルで、チャネルの評価の違いを比較' },
   { icon: 'rfm', title: 'RFM', text: 'R × F マトリクスとセグメントで、売上を支える顧客層を把握' },
+  { icon: 'frequency', title: '購入回数の推移', text: '初回〜N 回目の購入でカテゴリ・ブランド・金額帯がどう移り、どの累計金額ランクに育ったかをサンキー図で' },
   { icon: 'loyal', title: 'ロイヤル顧客の買い方', text: 'ロイヤル顧客が最初に買った商品や、よく見るページの違い' },
   { icon: 'ads', title: '広告の貢献', text: '購入直前以外のアシストも含めた、広告ごとの役割と貢献商品' },
   { icon: 'email', title: 'メールと商品', text: 'メールで見た商品を、Web・店舗で同じ人が買ったか' },

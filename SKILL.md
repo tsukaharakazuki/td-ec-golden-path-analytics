@@ -19,7 +19,7 @@ description: EC の購買サイクル（流入→回遊→会員登録→購買�
 Step 0  開始の宣言
 Step 1  ファイルの取得
 Step 2  作業フォルダと接続先（tdx）の確認、既存インストールの確認
-Step 3  ヒアリング（references/hearing.md の A〜H）
+Step 3  ヒアリング（references/hearing.md の A〜I）
 Step 4  データ確認（承認制・読み取り専用）→ 設定値の提案（CV 判定・ページ分類・チャネル・除外リファラ）
 Step 5  Workflow の生成（params.yml / channel_rules.sql）と静的検査
 Step 6  push と初回実行（承認制）
@@ -43,7 +43,7 @@ Step 8  運用 Skill の配置と完了報告
 ECゴールデンパス分析の初期構築を始めます。
 1. 必要なファイルを取得します
 2. 作業フォルダと Treasure Data の接続先を確認します
-3. データの場所と判定ルールを、8つのテーマ（A〜H）で質問します（15〜25分程度）
+3. データの場所と判定ルールを、9つのテーマ（A〜I）で質問します（15〜30分程度）
 4. ご了承いただければ、実データを読み取り専用で確認し、購入完了の判定や除外すべきリファラを提案します
 5. 集計 Workflow を作って push・実行し、ダッシュボードを作ります（push と実行の前に確認します）
 分からない項目は「後で」と答えていただければ、未確認として残して先に進めます。
@@ -71,7 +71,7 @@ git clone --depth 1 https://github.com/tsukaharakazuki/td-ec-golden-path-analyti
 
 ## Step 3: ヒアリング
 
-`$SKILL/references/hearing.md` の **A〜H** を順に進める。回答は `params.yml` の対応キーにメモしていく。
+`$SKILL/references/hearing.md` の **A〜I** を順に進める。回答は `params.yml` の対応キーにメモしていく。
 
 | テーマ | 内容 | 主な書き込み先 |
 |---|---|---|
@@ -83,8 +83,10 @@ git clone --depth 1 https://github.com/tsukaharakazuki/td-ec-golden-path-analyti
 | F | 会員データ | `source.member` / `source.id_map` |
 | G | POS（店舗＋EC）と商品マスタ | `source.pos` / `source.product` |
 | H | 分析の設定（RFM・ロイヤル定義・商品のまとめ方・スコアの重み） | `rfm` / `journey` / `golden_path` |
+| I | 購入回数の推移（何回目まで、軸＝カテゴリ・ブランド・金額帯など、最終列のランク、1注文で複数カテゴリを買ったときの見せ方） | `frequency_sankey` |
 
 - 「ない」と答えたデータは `enabled: false` にし、使えなくなる分析を一言伝える（会員・POS が無い場合、RFM とロイヤル顧客の分析、店舗購入の判定、再購入率の一部が使えない）。
+- POS が無い場合は `frequency_sankey.enabled: false` にする（購入回数の推移は POS の明細から作る）。
 - 会員ID が Webログに無く、ID 対応テーブルも無い場合は `common.id_stitching: cookie` とし、流入元は utm とリファラで判定することを伝える。
 
 ## Step 4: データ確認と設定値の提案（承認制・読み取り専用）
@@ -131,7 +133,7 @@ tdx が使えない環境では、利用者にテーブル定義とサンプル�
 
 ```bash
 node $SKILL/scripts/gp-cli.mjs export-sql --db <出力DB> --out <レポートフォルダ>/<日付>/sql
-# 各 SQL を実行（16 本）
+# 各 SQL を実行（20 本）
 tdx query -f <レポートフォルダ>/<日付>/sql/<key>.sql --json --limit 100000 --output <レポートフォルダ>/<日付>/data/<key>.json
 node $SKILL/scripts/gp-cli.mjs bundle --in <レポートフォルダ>/<日付>/data --params <作業フォルダ>/<プロジェクト名>/config/params.yml --client "<顧客名>" --project <プロジェクト名> --out <レポートフォルダ>/<日付>/bundle.json
 node $SKILL/scripts/gp-cli.mjs dashboard --bundle <レポートフォルダ>/<日付>/bundle.json --out <レポートフォルダ>/<日付>/golden-path-dashboard.html

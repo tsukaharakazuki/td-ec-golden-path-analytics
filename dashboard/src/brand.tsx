@@ -3,7 +3,7 @@ const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 155.43 10
 
 export const BRAND_ICON = `data:image/svg+xml,${encodeURIComponent(ICON_SVG)}`
 
-export type IconName = 'overview' | 'golden' | 'attribution' | 'rfm' | 'loyal' | 'ads' | 'email' | 'quality' | 'upload' | 'github' | 'lock'
+export type IconName = 'overview' | 'golden' | 'attribution' | 'rfm' | 'loyal' | 'ads' | 'email' | 'frequency' | 'quality' | 'upload' | 'github' | 'lock'
 
 // Path data follows lucide (ISC) at 24px / 2px stroke, matching the catalog viewer's icon set.
 const PATHS: Record<IconName, string[]> = {
@@ -14,6 +14,7 @@ const PATHS: Record<IconName, string[]> = {
   loyal: ['M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.29l4.28-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.74H5.81a1 1 0 0 1-.96-.74L2.01 6.01a.5.5 0 0 1 .8-.52l4.28 3.67a1 1 0 0 0 1.52-.29z', 'M5 21h14'],
   ads: ['m3 11 18-5v12L3 14v-3z', 'M11.6 16.8a3 3 0 1 1-5.8-1.6'],
   email: ['M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'],
+  frequency: ['M3 5h3c6 0 6 14 12 14h3', 'M3 19h3c6 0 6-14 12-14h3', 'M3 12h18'],
   quality: ['M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3z', 'M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5', 'M3 12c0 1.66 4 3 9 3s9-1.34 9-3'],
   upload: ['M12 17V3', 'm6 11 6 6 6-6', 'M19 21H5'],
   github: ['M6 3v12', 'M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M18 9a9 9 0 0 1-9 9'],
