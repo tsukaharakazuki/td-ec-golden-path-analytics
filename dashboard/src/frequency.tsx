@@ -214,7 +214,7 @@ export function Frequency({ b }: { b: Bundle }) {
       series: [{
         type: 'sankey',
         left: 8,
-        right: 150,
+        right: 120,
         top: 12,
         bottom: 12,
         nodeWidth: 12,
@@ -318,7 +318,7 @@ export function Frequency({ b }: { b: Bundle }) {
             <div className="sankey-head" aria-hidden="true">
               {Array.from({ length: headerCols }, (_, i) => (
                 <span key={i} className={i + 1 === maxStep + 1 ? 'final' : ''}
-                  style={{ left: headerCols > 1 ? `calc(8px + ${i} * (100% - 170px) / ${headerCols - 1})` : '8px' }}>
+                  style={{ left: headerCols > 1 ? `calc(8px + ${i} * (100% - 140px) / ${headerCols - 1})` : '8px' }}>
                   {i + 1 === maxStep + 1 ? finalTitle : `F${i + 1}`}
                   <small>{i + 1 === maxStep + 1 ? `F${maxStep} 時点` : i === 0 ? '初回購入' : `${i + 1}回目`}</small>
                 </span>
