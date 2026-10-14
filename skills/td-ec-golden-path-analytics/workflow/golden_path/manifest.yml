@@ -40,6 +40,12 @@ tables:
     - gp_top_paths
     - gp_lifecycle
     - gp_funnel_summary
+    - gp_freq_orders
+    - gp_freq_final
+    - gp_freq_links
+    - gp_freq_nodes
+    - gp_freq_outcome
+    - gp_freq_combos
     # 03_golden
     - gp_loyal_product_paths
     - gp_loyal_behavior_stats

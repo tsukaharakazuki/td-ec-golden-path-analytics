@@ -11,6 +11,7 @@ Workflow `golden_path` が作るテーブルと、その考え方。テーブル
   アトリビューション gp_attribution_credits → gp_attribution_summary, gp_attribution_channel
   経路           gp_cv_journey → gp_cv_journey_items, gp_open_journeys, gp_path_length, gp_top_paths
   購買サイクル     gp_lifecycle → gp_funnel_summary
+  購入回数の推移   gp_freq_orders → gp_freq_final → gp_freq_links, gp_freq_nodes, gp_freq_outcome, gp_freq_combos
 03_golden ゴールデンパス分析
   Q1 gp_loyal_product_paths, gp_loyal_behavior_stats
   Q2 gp_ad_contribution, gp_ad_product
@@ -88,6 +89,33 @@ POS（`rfm.scope: all` は店舗＋EC、`ec` は EC のみ）の会員ごとに 
 
 期間内に訪問した人物ごとに、流入（最初のタッチのチャネル）→ 回遊（`browse_min_pv` PV 以上か商品詳細を閲覧）→ 会員（会員ID で識別）／期間内の会員登録 → 購買（Web の CV ＋ 会員の POS 購入）→ 再訪問（初回購買の 1 時間後〜`revisit_window_days` 日）→ 再購入。
 各段階は「流入した人」に対する割合で見る（段階は厳密な入れ子ではない。例: ゲスト購入は会員でなくても購買に入る）。
+
+## 7.5 購入回数の推移（フリークエンシー・サンキー、`gp_freq_*`）
+
+**対象**: POS の会員の注文（`amount > 0`、`frequency_sankey.scope`）を時刻順に並べ、1 回目を F1 とする。期間の先頭で既に購入していた既存顧客を F1 と数えないよう、POS 期間の最初の `new_customer_gap_days` 日に購入が無い会員だけを対象にする。F2 以降は期間内の購入（期間が長いほど後半の回まで届く）。
+
+**値（ノード）**: 注文ごとに、軸（`dimensions`）の値を決める。
+- `category` / `brand` / `custom` … 明細から（商品マスタ → POS 明細の順）。購入者数の多い上位 `top_nodes` 件以外と不明は「その他」
+- `amount_band` … 1注文の合計金額を `amount_bands` で区切る
+- `channel` … EC / 店舗
+
+**1注文に複数の値があるとき**（例: アウターとトップスを同時に購入）。3 通りを同時に集計し（`mode`）、ダッシュボードで切り替える。
+
+| mode | 決め方 | weight | 向いている問い |
+|---|---|---|---|
+| primary | 金額が最大の値（同額なら不明でない方） | 1 | 主に何を買った人が、次に何を買うか。人数が保たれる（既定） |
+| mixed | 2 つ以上なら「複数カテゴリ」「複数ブランド」 | 1 | まとめ買い・併買がどの回で起き、その後どこへ流れるか |
+| split | 値ごとの金額比率で按分 | 合計 1 | すべての値の流れを出したい。人数は「人相当」 |
+
+F(k) → F(k+1) の帯の weight は前後の注文の weight の積（split では 0.8 × 0.5 = 0.4 人相当など）。どの mode でも各列の合計は人数と一致する。
+1 人を各値で重複して数える方法は、列の合計が人数を超え、帯の太さが人数を表さなくなるので採らない。
+どの mode でも、注文が複数の値を含んでいたか（`is_multi`）と組み合わせ（`combo`）を残し、ノードごとの「複数購入の比率」と組み合わせの上位（`gp_freq_combos`）で補う。
+
+**離脱**: F(k) が最後の購入だった人は、F(k+1) の列の「(離脱)」へ流す（ダッシュボードの「初回購入者全員」で表示）。
+
+**最終列**（`final_column`）: F`max_steps` まで購入した人だけ。`amount_rank` は F`max_steps` 時点の累計購買金額を `rank_thresholds` で区切ったランク、`rfm_segment` は現在の RFM セグメント。`gp_freq_outcome` は「F(k) でその値を買った人が、最終的にどのランクになったか」で、入口商品ごとの上位ランク率に使う。
+
+**注意**: 期間の終わりに近い初回購入者は、まだ 2 回目を買う時間が無い。F(k) への到達率は、初回購入の時期をそろえた比較（例: playbook の `freq_cohort`）で見る。
 
 ## 8. 3 つの問い
 

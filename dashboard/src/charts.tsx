@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import * as echarts from 'echarts/core'
-import { BarChart, HeatmapChart } from 'echarts/charts'
+import { BarChart, HeatmapChart, SankeyChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import { SVGRenderer } from 'echarts/renderers'
 import type { EChartsCoreOption } from 'echarts/core'
 
-echarts.use([BarChart, HeatmapChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent, SVGRenderer])
+echarts.use([BarChart, HeatmapChart, SankeyChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent, SVGRenderer])
 
 export interface Theme {
   surface: string

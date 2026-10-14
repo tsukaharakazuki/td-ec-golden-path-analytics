@@ -7,7 +7,7 @@ _export:
 
 ###############################################################################
 # 02_marts: 中間テーブル
-#   RFM マトリクス / アトリビューション / コンバージョン経路 / 購買サイクル
+#   RFM マトリクス / アトリビューション / コンバージョン経路 / 購買サイクル / フリークエンシー・サンキー
 ###############################################################################
 
 +rfm:
@@ -62,3 +62,26 @@ _export:
   +funnel:
     td>: ../queries/02_marts/funnel_summary.sql
     create_table: gp_funnel_summary
+
+# フリークエンシー・サンキー（F1〜F<max_steps> の購入の移り変わり。RFM の後に実行）
++frequency:
+  +orders:
+    td>: ../queries/02_marts/freq_orders.sql
+    create_table: gp_freq_orders
+  +final:
+    td>: ../queries/02_marts/freq_final.sql
+    create_table: gp_freq_final
+  +summaries:
+    _parallel: true
+    +links:
+      td>: ../queries/02_marts/freq_links.sql
+      create_table: gp_freq_links
+    +nodes:
+      td>: ../queries/02_marts/freq_nodes.sql
+      create_table: gp_freq_nodes
+    +outcome:
+      td>: ../queries/02_marts/freq_outcome.sql
+      create_table: gp_freq_outcome
+    +combos:
+      td>: ../queries/02_marts/freq_combos.sql
+      create_table: gp_freq_combos

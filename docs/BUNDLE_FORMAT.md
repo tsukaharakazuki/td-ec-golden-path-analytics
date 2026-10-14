@@ -16,7 +16,8 @@
   "funnel": [], "attribution_channel": [], "attribution_touch": [], "path_length": [], "top_paths": [],
   "rfm_matrix": [], "rfm_segments": [], "golden_paths": [], "golden_candidates": [],
   "loyal_product_paths": [], "loyal_behavior_stats": [], "ad_contribution": [], "ad_product": [],
-  "email_influence": [], "email_product": []
+  "email_influence": [], "email_product": [],
+  "freq_links": [], "freq_nodes": [], "freq_outcome": [], "freq_combos": []
 }
 ```
 
@@ -38,6 +39,13 @@
 | ad_product | gp_ad_product | 広告 × 30 |
 | email_influence | gp_email_influence | 最大 300 |
 | email_product | gp_email_product | メール × 50 |
+| freq_links | gp_freq_links | 軸 × 見せ方 × 回数 × 値² × 2（数百〜数千） |
+| freq_nodes | gp_freq_nodes | 軸 × 見せ方 × 回数 × 値 × 2 |
+| freq_outcome | gp_freq_outcome | 軸 × 見せ方 × 回数 × 値 × ランク |
+| freq_combos | gp_freq_combos | 軸 × 回数 × 20 |
+
+`freq_*` は後から追加したキー。古い bundle.json に無い場合、ダッシュボードは「購入回数の推移」を空として表示する。
+各行の `mode` は `primary` / `mixed` / `split`（1注文に複数の値があるときの見せ方）または `single`（金額帯・チャネルのように値が1つの軸）。
 
 各行のカラムはテーブルと同じ。数値は数値で持つ（`tdx query --json` が文字列で返した数値は、ID・名前系のカラムを除いて数値に変換する）。
 

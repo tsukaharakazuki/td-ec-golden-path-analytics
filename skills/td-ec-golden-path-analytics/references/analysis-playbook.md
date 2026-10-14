@@ -177,3 +177,46 @@ HAVING COUNT(*) >= 10
 ORDER BY is_new_customer, cv DESC
 LIMIT 60
 ```
+
+## 購入回数の推移（フリークエンシー）
+
+```sql
+-- PLAYBOOK freq_transition
+-- F(k) → F(k+1) で、どの値からどの値へ移ったか（mode: primary / mixed / split、dimension: category など）
+SELECT step, from_node, to_node, SUM(weight) AS customers
+       , SUM(weight) / SUM(SUM(weight)) OVER (PARTITION BY step, from_node) AS share_of_from
+FROM {{db}}.gp_freq_links
+WHERE dimension = 'category' AND mode IN ('primary', 'single') AND kind IN ('flow', 'exit')
+GROUP BY 1, 2, 3
+ORDER BY step, from_node, customers DESC
+```
+
+```sql
+-- PLAYBOOK freq_entry_outcome
+-- F1 で買った値ごとの、最終列（累計購買金額ランクなど）の構成（F<max_steps> まで購入した人）
+SELECT node, final_node, SUM(weight) AS customers
+       , SUM(weight) / SUM(SUM(weight)) OVER (PARTITION BY node) AS share
+FROM {{db}}.gp_freq_outcome
+WHERE dimension = 'category' AND mode IN ('primary', 'single') AND step = 1
+GROUP BY 1, 2
+ORDER BY node, share DESC
+```
+
+```sql
+-- PLAYBOOK freq_cohort
+-- 初回購入の月ごとの F2〜F4 到達率（期間の終わりに近い月は、まだ買う時間が無いことに注意）
+SELECT first_month, COUNT(*) AS first_buyers
+       , AVG(CASE WHEN orders_total >= 2 THEN 1e0 ELSE 0e0 END) AS reach_f2
+       , AVG(CASE WHEN orders_total >= 3 THEN 1e0 ELSE 0e0 END) AS reach_f3
+       , AVG(CASE WHEN orders_total >= 4 THEN 1e0 ELSE 0e0 END) AS reach_f4
+FROM (
+  SELECT member_id, MAX(orders_total) AS orders_total
+         , MIN(substr(CAST(from_unixtime(order_time) AS VARCHAR), 1, 7)) AS first_month
+  FROM {{db}}.gp_freq_orders
+  WHERE dimension = (SELECT MIN(dimension) FROM {{db}}.gp_freq_orders) AND step = 1
+  GROUP BY 1
+) t
+GROUP BY 1
+ORDER BY 1
+```
+

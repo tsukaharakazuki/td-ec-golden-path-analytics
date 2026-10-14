@@ -50,3 +50,9 @@ golden_path:
   min_support: 8
 journey:
   repurchase_window_days: 30
+frequency_sankey:
+  # synthetic POS history starts right at the window start, so treat the first order in the window as F1
+  new_customer_gap_days: 0
+  dimensions: "category,brand,amount_band,channel,custom"
+  custom_expr: "CASE WHEN category IN ('アウター', 'ボトムス') THEN '定番ライン' WHEN category IN ('シューズ', 'バッグ') THEN '服飾雑貨' ELSE 'トレンド' END"
+  custom_label: "商品ライン"

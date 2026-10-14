@@ -55,7 +55,7 @@ unresolved:                       # 未確認事項
 
 1. 抽出 SQL を書き出す:
    `node $SKILL/scripts/gp-cli.mjs export-sql --db <database> --out <日付フォルダ>/sql`
-2. 16 本の SQL をそれぞれ実行する:
+2. 20 本の SQL をそれぞれ実行する:
    `tdx query -f <日付フォルダ>/sql/<key>.sql --json --limit 100000 --output <日付フォルダ>/data/<key>.json`
 3. バンドルを作る（検証込み）:
    `node $SKILL/scripts/gp-cli.mjs bundle --in <日付フォルダ>/data --params <workflow_dir>/config/params.yml --client "<client>" --project <project> --attempt <attempt-id> --out <日付フォルダ>/bundle.json`
@@ -84,6 +84,7 @@ unresolved:                       # 未確認事項
 | 特定の広告が、実際の購買にどう貢献しているか | `gp_ad_contribution`, `gp_ad_product`, `gp_attribution_credits`, `gp_cv_journey` |
 | 特定のメールが、どの商品ページを閲覧させ、同じ商品の購入につながったか | `gp_email_influence`, `gp_email_product`, `gp_email_view_purchase` |
 | どのパターンがゴールデンパスか、なぜか | `gp_golden_paths`, `gp_golden_path_candidates` |
+| 初回から N 回目までに買うもの（カテゴリ・ブランド・金額帯）がどう移り、どのランクに育ったか | `gp_freq_links`, `gp_freq_nodes`, `gp_freq_outcome`, `gp_freq_combos`, `gp_freq_orders` |
 
 集計ロジックの説明は `$SKILL/references/methodology.md`。
 
