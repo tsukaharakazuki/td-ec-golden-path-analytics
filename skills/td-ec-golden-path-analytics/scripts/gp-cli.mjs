@@ -5,8 +5,14 @@
 //   node gp-cli.mjs discovery-sql --params <params.yml> --out <dir>   データ確認用のSQL（読み取り専用）を書き出す
 //   node gp-cli.mjs export-sql --db <database> --out <dir>             ダッシュボード用の抽出SQLを書き出す
 //   node gp-cli.mjs bundle     --in <dir> --params <params.yml> --out <bundle.json> [--client <name>] [--project <name>] [--attempt <id>]
-//   node gp-cli.mjs dashboard  --bundle <bundle.json> --out <file.html> [--template <html>]
+//   node gp-cli.mjs dashboard  --bundle <bundle.json> --out <file.html> [--template <html>] [--by <担当者>]
 //   node gp-cli.mjs validate   <bundle.json>
+//   node gp-cli.mjs memory     <作業フォルダ> --by <担当者> --stage <段階> --summary <要約> [--status 進行中|完了|中断] [--done ..] [--decided ..] [--open ..] [--next ..]
+//                                                                     作業記録 <作業フォルダ>/MEMORY.md に時系列で追記する（無ければ作る）
+//
+// 作業フォルダは Treasure AI Studio の「my」以外の共有フォルダに置く（my は本人しか開けない）。
+// 書き出し系のコマンドは、出力先が my の中だとエラーにする。
+// dashboard は、出力先の上位フォルダに MEMORY.md があれば 1 行追記する（--by で担当者）。
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -140,9 +146,106 @@ function walkFiles(dir, pred, acc = []) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared folders and MEMORY.md
+//
+// Treasure AI Studio gives every user a private "my" folder that nobody else can open.
+// The Workflow project, reports, dashboards, the installed skill and the work log are
+// shared with the team, so they must never be written there.
+
+export const PRIVATE_FOLDER = /^my$/i
+export const WORK_FOLDER = 'golden-path'
+
+export function privateFolderOf(p) {
+  const parts = path.resolve(p).split(path.sep)
+  const index = parts.findIndex((part) => PRIVATE_FOLDER.test(part))
+  return index < 0 ? undefined : parts.slice(0, index + 1).join(path.sep) || path.sep
+}
+
+export function assertSharedPath(p, label = '出力先') {
+  const folder = privateFolderOf(p)
+  if (folder) {
+    throw new Error(`${label}（${path.resolve(p)}）は「my」フォルダ（${folder}）の中です。my は本人しか開けず他のメンバーと共有できないため、my 以外のフォルダ（例: ${path.join(path.dirname(folder), WORK_FOLDER)}）を作成し、その中で作業してください`)
+  }
+}
+
+export const MEMORY_FILE = 'MEMORY.md'
+
+const MEMORY_HEADER = `# MEMORY — ECゴールデンパス分析 作業記録
+
+ゴールデンパス分析の構築・運用は段階を分けて、担当者をまたいで進めます。このファイルには **時系列（古い順）** で作業を追記します。
+作業を始める人は **最後のエントリ** から「状態」「未解決・要確認」「次にやること」を読んで引き継いでください。
+
+- 追記は \`node gp-cli.mjs memory <作業フォルダ> --by <担当者> --stage <段階> --summary <要約> ...\` で行う（dashboard は自動で 1 行追記する）
+- 過去のエントリは書き換えない。訂正は新しいエントリで行う
+- API キー・トークン・Webhook URL・個人情報の生値・クエリ結果の生データは書かない
+- このフォルダは「my」以外の共有フォルダに置く（my は本人しか開けない）
+
+`
+
+const SECRET_PATTERNS = [
+  [/\b\d{3,6}\/[0-9a-f]{40}\b/i, 'TD の API キー'],
+  [/https:\/\/hooks\.(slack|zapier)\.com\/\S+/i, 'Webhook URL'],
+  [/\b(api[_-]?key|apikey|token|password|secret)\s*[:=]\s*\S{8,}/i, 'API キー・パスワード'],
+  [/[\w.+-]+@[\w-]+\.[\w.]+/, 'メールアドレス'],
+]
+
+function stamp(at) {
+  if (typeof at === 'string') return at
+  const date = new Date()
+  const offset = -date.getTimezoneOffset()
+  const pad = (v) => String(Math.trunc(Math.abs(v))).padStart(2, '0')
+  const local = new Date(date.getTime() + offset * 60000).toISOString()
+  return `${local.slice(0, 10)} ${local.slice(11, 16)} (${offset >= 0 ? '+' : '-'}${pad(offset / 60)}:${pad(offset % 60)})`
+}
+
+const bullets = (v) => (typeof v === 'string' ? v.split(/\r?\n/).map((l) => l.replace(/^\s*[-*・]\s*/, '').trim()).filter(Boolean) : [])
+
+export function memoryEntry({ at, by, stage, status, summary, done, decided, open, next }) {
+  const lines = [`## ${stamp(at)} — ${stage || '作業'} — 担当: ${typeof by === 'string' && by ? by : '（未記入）'}`, '']
+  if (typeof status === 'string' && status) lines.push(`- 状態: ${status}`)
+  for (const l of bullets(summary)) lines.push(`- ${l}`)
+  for (const [title, v] of [['実施したこと', done], ['決定・確認済み', decided], ['未解決・要確認', open], ['次にやること', next]]) {
+    const items = bullets(v)
+    if (items.length) lines.push('', `### ${title}`, '', ...items.map((x) => `- ${x}`))
+  }
+  return `${lines.join('\n')}\n\n`
+}
+
+/** Append an entry to <workDir>/MEMORY.md, creating it (and the folder) if needed. */
+export function appendMemory(workDir, entry, { create = true } = {}) {
+  const file = path.join(path.resolve(workDir), MEMORY_FILE)
+  assertSharedPath(file, 'MEMORY.md')
+  for (const [pattern, label] of SECRET_PATTERNS) {
+    if (pattern.test(JSON.stringify(entry))) throw new Error(`MEMORY.md に書こうとした内容に${label}が含まれている可能性があります。書き込みを中止しました`)
+  }
+  if (!fs.existsSync(file)) {
+    if (!create) return undefined
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, MEMORY_HEADER)
+  }
+  const text = fs.readFileSync(file, 'utf8')
+  fs.writeFileSync(file, `${text.replace(/\n*$/, '\n\n')}${memoryEntry(entry)}`.replace(/\n{3,}/g, '\n\n'))
+  return file
+}
+
+/** The work folder of a file: the nearest ancestor that holds MEMORY.md. */
+export function findWorkDir(p) {
+  let dir = path.dirname(path.resolve(p))
+  for (;;) {
+    if (fs.existsSync(path.join(dir, MEMORY_FILE))) return dir
+    const parent = path.dirname(dir)
+    if (parent === dir) return undefined
+    dir = parent
+  }
+}
+
+// ---------------------------------------------------------------------------
 export function check(wfDir) {
   const errors = []
   const warnings = []
+  const privateFolder = privateFolderOf(wfDir)
+  if (privateFolder) errors.push(`Workflow プロジェクトが「my」フォルダ（${privateFolder}）の中にあります。my は他のメンバーと共有できないため、my 以外の作業フォルダ（例: ${path.join(path.dirname(privateFolder), WORK_FOLDER)}）に置いてください`)
+  else if (!findWorkDir(path.join(path.resolve(wfDir), 'x')) && !path.resolve(wfDir).startsWith(SKILL)) warnings.push(`作業フォルダに ${MEMORY_FILE} がありません（作業記録を残すには gp-cli.mjs memory <作業フォルダ> ... で作成）`)
   const paramsPath = path.join(wfDir, 'config', 'params.yml')
   if (!fs.existsSync(paramsPath)) return { errors: [`${paramsPath} がありません`], warnings }
   const paramsText = fs.readFileSync(paramsPath, 'utf8')
@@ -253,6 +356,7 @@ export function checkFrequency(params) {
 // ---------------------------------------------------------------------------
 export function exportSql(db, outDir) {
   if (!/^[A-Za-z0-9_]+$/.test(db)) throw new Error(`database 名が不正です: ${db}`)
+  assertSharedPath(outDir, 'SQL の出力先')
   fs.mkdirSync(outDir, { recursive: true })
   const written = []
   for (const key of DATASETS) {
@@ -268,6 +372,7 @@ export function exportSql(db, outDir) {
 // ---------------------------------------------------------------------------
 /** Render discovery SQL with params.yml. Queries that need unconfirmed values are skipped and reported. */
 export function discoverySql(params, outDir, only) {
+  assertSharedPath(outDir, 'SQL の出力先')
   fs.mkdirSync(outDir, { recursive: true })
   const written = []
   const skipped = []
@@ -493,6 +598,7 @@ function main() {
         warnings.forEach((w) => console.log(`warning: ${w}`))
         errors.forEach((e) => console.log(`error:   ${e}`))
         if (errors.length) process.exit(1)
+        assertSharedPath(a.out, 'bundle の出力先')
         fs.mkdirSync(path.dirname(path.resolve(a.out)), { recursive: true })
         fs.writeFileSync(a.out, JSON.stringify(bundle))
         console.log(`${a.out}（${(fs.statSync(a.out).size / 1024).toFixed(0)} KB）`)
@@ -503,8 +609,35 @@ function main() {
         const bundle = JSON.parse(fs.readFileSync(a.bundle, 'utf8'))
         const { errors } = validateBundle(bundle)
         if (errors.length) throw new Error(errors.join('\n'))
+        assertSharedPath(a.out, 'ダッシュボードの出力先')
+        fs.mkdirSync(path.dirname(path.resolve(a.out)), { recursive: true })
         fs.writeFileSync(a.out, renderDashboard(bundle, a.template || TEMPLATE))
         console.log(`${a.out}（${(fs.statSync(a.out).size / 1024).toFixed(0)} KB）`)
+        const workDir = findWorkDir(a.out)
+        if (workDir) {
+          const k = bundle.kpi || {}
+          const day = (t) => (Number(t) > 0 ? new Date(Number(t) * 1000).toISOString().slice(0, 10) : '')
+          const wf = bundle.meta?.workflow || {}
+          const facts = [
+            wf.project && `project ${wf.project}`,
+            wf.attempt_id && `attempt ${wf.attempt_id}`,
+            k.web_from && `Webログ ${day(k.web_from)}〜${day(k.web_to)}`,
+            k.conversions != null && `CV ${k.conversions}`,
+            k.revenue != null && `売上 ${Math.round(Number(k.revenue)).toLocaleString('ja-JP')}`,
+          ].filter(Boolean)
+          appendMemory(workDir, {
+            by: a.by, stage: 'ダッシュボード作成', status: '完了',
+            summary: `${path.relative(workDir, path.resolve(a.out)).split(path.sep).join('/')} を作成${facts.length ? `（${facts.join(' / ')}）` : ''}`,
+          })
+          console.log(`作業記録: ${path.join(workDir, MEMORY_FILE)} に追記しました`)
+        }
+        break
+      }
+      case 'memory': {
+        const dir = a._[0]
+        if (!dir || typeof a.stage !== 'string' || typeof a.summary !== 'string') throw new Error('memory <作業フォルダ> --by <担当者> --stage <段階> --summary <要約> を指定してください')
+        const file = appendMemory(dir, { at: a.at, by: a.by, stage: a.stage, status: a.status, summary: a.summary, done: a.done, decided: a.decided, open: a.open, next: a.next })
+        console.log(`${file} に追記しました`)
         break
       }
       case 'validate': {

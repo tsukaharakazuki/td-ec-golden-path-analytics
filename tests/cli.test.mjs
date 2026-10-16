@@ -5,14 +5,17 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execFileSync } from 'node:child_process'
 import {
-  DATASETS, buildBundle, check, checkFrequency, discoverySql, exportSql, lookup, parseYaml, readRows, renderDashboard, validateBundle,
+  DATASETS, appendMemory, assertSharedPath, buildBundle, check, checkFrequency, discoverySql, exportSql, findWorkDir, lookup, parseYaml,
+  privateFolderOf, readRows, renderDashboard, validateBundle,
 } from '../skills/td-ec-golden-path-analytics/scripts/gp-cli.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SKILL = path.join(ROOT, 'skills', 'td-ec-golden-path-analytics')
 const WF = path.join(SKILL, 'workflow', 'golden_path')
 const SAMPLE = path.join(ROOT, 'dashboard', 'public', 'sample-bundle.json')
+const CLI = path.join(SKILL, 'scripts', 'gp-cli.mjs')
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gp-test-'))
 
 test('params.yml parses, including regex strings and inline lists', () => {
@@ -141,4 +144,57 @@ test('bundle keeps sankey node names as strings even when they look numeric', ()
   const { bundle } = buildBundle({ inDir: dir, params: null })
   assert.equal(bundle.freq_links[0].from_node, '1990')
   assert.equal(bundle.freq_links[0].weight, 12.5)
+})
+
+test('nothing is written inside the private "my" folder', () => {
+  const ws = tmp()
+  const mine = path.join(ws, 'my')
+  assert.equal(privateFolderOf(path.join(mine, 'golden-path', 'x')), mine)
+  assert.equal(privateFolderOf(path.join(ws, 'My', 'x')), path.join(ws, 'My'))
+  assert.equal(privateFolderOf(path.join(ws, 'mydata', 'x')), undefined, 'only a folder named exactly "my"')
+  assert.doesNotThrow(() => assertSharedPath(path.join(ws, 'golden-path', 'reports')))
+  assert.throws(() => exportSql('golden_path_mart', path.join(mine, 'sql')), /my/)
+  const params = parseYaml(fs.readFileSync(path.join(WF, 'config', 'params.yml'), 'utf8'))
+  assert.throws(() => discoverySql(params, path.join(mine, '_discovery')), /my/)
+  assert.throws(() => appendMemory(path.join(mine, 'golden-path'), { stage: 'x', summary: 'y' }), /my/)
+  assert.ok(!fs.existsSync(mine), 'nothing was created under my/')
+
+  const wf = path.join(mine, 'golden_path')
+  fs.cpSync(WF, wf, { recursive: true })
+  assert.ok(check(wf).errors.some((e) => /my/.test(e) && /共有/.test(e)))
+
+  assert.throws(() => execFileSync('node', [CLI, 'dashboard', '--bundle', SAMPLE, '--out', path.join(mine, 'd.html')], { stdio: 'pipe' }))
+  assert.throws(() => execFileSync('node', [CLI, 'bundle', '--in', ws, '--out', path.join(mine, 'b.json')], { stdio: 'pipe' }))
+  assert.ok(!fs.existsSync(path.join(mine, 'd.html')))
+})
+
+test('MEMORY.md keeps a chronological work log across people and stages', () => {
+  const work = path.join(tmp(), 'golden-path')
+  const run = (...argv) => execFileSync('node', [CLI, ...argv], { encoding: 'utf8' })
+  run('memory', work, '--by', '山田', '--stage', 'ヒアリング', '--status', '中断', '--summary', 'A〜E まで確定',
+    '--decided', '出力DB golden_path_mart\nCV は /thanks', '--open', 'POS の店舗コード（店舗運営に確認）', '--next', 'F から再開', '--at', '2026-10-16 10:00 (+09:00)')
+  run('memory', work, '--by', '鈴木', '--stage', 'ヒアリング', '--status', '完了', '--summary', 'F〜I を確定', '--at', '2026-10-17 09:30 (+09:00)')
+  assert.throws(() => run('memory', work, '--by', '鈴木', '--stage', 'x'), 'summary is required')
+  assert.throws(() => appendMemory(work, { stage: 'x', summary: 'key 1234/abcdefabcdefabcdefabcdefabcdefabcdefabcd' }), /MEMORY/)
+  assert.throws(() => appendMemory(work, { stage: 'x', summary: 'taro@example.com に確認' }), /メールアドレス/)
+
+  // dashboard appends one line when its output sits under the work folder
+  const out = path.join(work, 'golden_path_reports', '20261017', 'golden-path-dashboard.html')
+  run('dashboard', '--bundle', SAMPLE, '--out', out, '--by', '鈴木')
+  assert.equal(findWorkDir(out), work)
+
+  const log = fs.readFileSync(path.join(work, 'MEMORY.md'), 'utf8')
+  assert.match(log, /^# MEMORY/)
+  const a = log.indexOf('2026-10-16 10:00'), b = log.indexOf('2026-10-17 09:30'), c = log.indexOf('ダッシュボード作成')
+  assert.ok(a > 0 && a < b && b < c, 'entries are appended oldest first')
+  assert.match(log, /担当: 山田/)
+  assert.match(log, /### 未解決・要確認\n\n- POS の店舗コード/)
+  assert.match(log, /### 決定・確認済み\n\n- 出力DB golden_path_mart\n- CV は \/thanks/)
+  assert.match(log, /golden_path_reports\/20261017\/golden-path-dashboard\.html を作成/)
+  assert.doesNotMatch(log, /1234\/abcdef|taro@/)
+
+  // a dashboard written outside any work folder does not touch a log
+  const elsewhere = path.join(tmp(), 'd.html')
+  run('dashboard', '--bundle', SAMPLE, '--out', elsewhere)
+  assert.ok(fs.existsSync(elsewhere))
 })
