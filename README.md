@@ -26,9 +26,26 @@ AI がリポジトリ直下の [`SKILL.md`](./SKILL.md)（インストーラー�
 | Workflow 生成 | `params.yml` とチャネル分類を埋め、静的検査 | 設定一覧の最終確認 |
 | push・初回実行 | `tdx wf push` → `tdx wf run` | push と実行の承認 |
 | ダッシュボード | 結果を抽出して HTML を作成 | — |
-| 配置 | 運用 Skill を作業フォルダの `.claude/skills/` に配置 | — |
+| 配置 | 運用 Skill を作業フォルダ（my 以外）の `.claude/skills/` に配置 | — |
+
+各段階の終わりに `MEMORY.md` へ追記します。
 
 分からない項目は「後で」と答えれば未確認として残り、完了報告に一覧で出ます。
+
+### 作業フォルダと MEMORY.md
+
+生成物はすべて **`my` 以外の共有フォルダ**（既定は `golden-path/`）に置きます。Treasure AI Studio の `my` フォルダは本人しかアクセスできず、他のメンバーに共有できないためです。CLI も `my` の中への書き出しをエラーにします。
+
+```text
+<共有フォルダ>/golden-path/                       ← my 以外
+├─ MEMORY.md                                     ← 作業記録（時系列・担当者の引き継ぎ用）
+├─ golden_path/                                  ← Workflow プロジェクト
+├─ _discovery/                                   ← データ確認用 SQL
+├─ golden_path_reports/<YYYYMMDD>/               ← bundle.json・ダッシュボード HTML
+└─ .claude/skills/td-ec-golden-path-analytics/   ← 運用 Skill（config/install.yml）
+```
+
+構築と運用は段階を追って担当者をまたいで進むので、各段階の内容・確定した設定・要確認事項・次にやることを、日時と担当者付きで `MEMORY.md` に時系列（古い順）で残します。次の担当者は最後のエントリから続けられます。詳しくは [Treasure AI Studio で使う](./docs/TREASURE_AI_STUDIO.md)。
 
 ## 日々の更新
 
@@ -39,7 +56,7 @@ AI がリポジトリ直下の [`SKILL.md`](./SKILL.md)（インストーラー�
 Workflow を実行して、終わったらダッシュボードを更新してください。
 ```
 
-AI が `tdx wf run` で Workflow を実行し、完了を確認してから中間テーブルを抽出し、`golden_path_reports/<日付>/golden-path-dashboard.html` を作ります。定期実行にしたい場合は `golden_path.dig` の `schedule` を有効にして push します。
+AI が `tdx wf run` で Workflow を実行し、完了を確認してから中間テーブルを抽出し、`golden-path/golden_path_reports/<日付>/golden-path-dashboard.html` を作って、MEMORY.md に記録します。定期実行にしたい場合は `golden_path.dig` の `schedule` を有効にして push します。
 
 追加分析の例:
 
@@ -99,7 +116,7 @@ td-ec-golden-path-analytics/
 │   │   ├── manifest.yml / tdx.json
 │   ├── discovery/*.sql              # データ確認用（読み取り専用）
 │   ├── export/*.sql                 # ダッシュボード用の抽出
-│   ├── scripts/gp-cli.mjs           # 検査・SQL 書き出し・bundle 作成・HTML 生成（Node.js 18+、依存なし）
+│   ├── scripts/gp-cli.mjs           # 検査・SQL 書き出し・bundle 作成・HTML 生成・作業記録（Node.js 18+、依存なし）
 │   └── assets/dashboard-template.html
 ├── dashboard/                       # ダッシュボードのソース（React + ECharts、1 ファイルにビルド）
 ├── docs/
@@ -131,10 +148,12 @@ node $S/scripts/gp-cli.mjs check $S/workflow/golden_path                        
 node $S/scripts/gp-cli.mjs discovery-sql --params <params.yml> --out _discovery    # データ確認用SQL
 node $S/scripts/gp-cli.mjs export-sql --db golden_path_mart --out out/sql          # ダッシュボード用の抽出SQL
 node $S/scripts/gp-cli.mjs bundle --in out/data --params <params.yml> --client "顧客名" --out out/bundle.json
-node $S/scripts/gp-cli.mjs dashboard --bundle out/bundle.json --out out/golden-path-dashboard.html
+node $S/scripts/gp-cli.mjs dashboard --bundle out/bundle.json --out out/golden-path-dashboard.html [--by 山田]   # 上位に MEMORY.md があれば 1 行追記
+node $S/scripts/gp-cli.mjs memory golden-path --by 山田 --stage ヒアリング --status 中断 \
+  --summary "A〜E を確定" --open "POS の店舗コード（店舗運営に確認）" --next "F から再開"           # MEMORY.md に時系列で追記（無ければ作成）
 ```
 
-TD には接続しません。SQL の実行は `tdx query` で行います。
+TD には接続しません。SQL の実行は `tdx query` で行います。出力先が `my` フォルダの中だとエラーになります（`check` も `my` の中の Workflow をエラーにします）。
 
 ## 開発
 
